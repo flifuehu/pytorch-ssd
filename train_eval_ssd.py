@@ -4,6 +4,7 @@ import logging
 import sys
 import itertools
 import re
+from tqdm import tqdm
 
 import torch
 from torch.utils.data import DataLoader, ConcatDataset
@@ -18,6 +19,7 @@ from vision.ssd.mobilenet_v2_ssd_lite import create_mobilenetv2_ssd_lite
 from vision.ssd.squeezenet_ssd_lite import create_squeezenet_ssd_lite
 from vision.datasets.voc_dataset import VOCDataset
 from vision.datasets.open_images import OpenImagesDataset
+from vision.datasets.laptools_dataset import LapToolsDataset
 from vision.nn.multibox_loss import MultiboxLoss
 from vision.ssd.config import vgg_ssd_config
 from vision.ssd.config import mobilenetv1_ssd_config
@@ -27,9 +29,11 @@ from vision.ssd.data_preprocessing import TrainAugmentation, TestTransform
 parser = argparse.ArgumentParser(
     description='Single Shot MultiBox Detector Training With Pytorch')
 
-parser.add_argument("--dataset_type", default="voc", type=str,
-                    help='Specify dataset type. Currently support voc and open_images.')
+parser.add_argument("--dataset_type", default="laptools", type=str,
+                    help='Specify dataset type.')
 
+parser.add_argument('--root_folder', default="/mnt/mlnas/Data/LapBypass/Sanjay/", type=str,
+                    help='Specify the path where the images are located')
 parser.add_argument('--train_dataset', nargs='+', help='Dataset directory path')
 parser.add_argument('--validation_dataset', help='Dataset directory path')
 parser.add_argument('--balance_data', action='store_true',
@@ -101,7 +105,7 @@ parser.add_argument('--checkpoint_folder', default='models/',
 logging.basicConfig(stream=sys.stdout, level=logging.INFO,
                     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 args = parser.parse_args()
-DEVICE = torch.device("cuda:0" if torch.cuda.is_available() and args.use_cuda else "cpu")
+DEVICE = torch.device("cuda:1" if torch.cuda.is_available() and args.use_cuda else "cpu")
 
 if args.use_cuda and torch.cuda.is_available():
     torch.backends.cudnn.benchmark = True
@@ -113,7 +117,7 @@ def train(loader, net, criterion, optimizer, device, debug_steps=100, epoch=-1):
     running_loss = 0.0
     running_regression_loss = 0.0
     running_classification_loss = 0.0
-    for i, data in enumerate(loader):
+    for i, data in enumerate(tqdm(loader)):
         images, boxes, labels = data
         images = images.to(device)
         boxes = boxes.to(device)
@@ -150,7 +154,7 @@ def test(loader, net, criterion, device):
     running_regression_loss = 0.0
     running_classification_loss = 0.0
     num = 0
-    for _, data in enumerate(loader):
+    for _, data in enumerate(tqdm(loader)):
         images, boxes, labels = data
         images = images.to(device)
         boxes = boxes.to(device)
@@ -295,7 +299,7 @@ if __name__ == '__main__':
     if args.resume:
         logging.info(f"Resume from the model {args.resume}")
         # net.load(args.resume)
-        optimizer, scheduler, res_epoch = net.load_checkpoint(args.resume)
+        net, optimizer, scheduler, res_epoch = net.load_checkpoint(args.resume)
         if last_epoch != res_epoch:
             raise ValueError("The checkpoint restored is corrupted. Epoch number does not match.")
             sys.exit(1)

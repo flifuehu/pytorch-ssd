@@ -2,6 +2,7 @@
 .idea
 log
 models
+models_voc
 
 eval_results/
 

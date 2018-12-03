@@ -131,11 +131,19 @@ class SSD(nn.Module):
         self.classification_headers.apply(_xavier_init_)
         self.regression_headers.apply(_xavier_init_)
 
-    def load(self, model):
-        self.load_state_dict(torch.load(model, map_location=lambda storage, loc: storage))
+    def load(self, model_path):
+        self.load_state_dict(torch.load(model_path, map_location=lambda storage, loc: storage))
 
     def save(self, model_path):
         torch.save(self.state_dict(), model_path)
+
+    def load_checkpoint(self, model_path):
+        checkpoint = torch.load(model_path, map_location=lambda storage, loc: storage)
+        self.load_state_dict(checkpoint['net'])
+        return checkpoint['optimizer'], checkpoint['scheduler'], checkpoint['epoch']
+
+    def save_checkpoint(self, state, model_path):
+        torch.save(state, model_path)
 
 
 class MatchPrior(object):
